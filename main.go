@@ -71,6 +71,9 @@ func main() {
 	var firewallScript string
 	flag.StringVar(&firewallScript, "script", "firewall.sh", "path to lxc container network config script")
 
+	var terraformScript string
+	flag.StringVar(&terraformScript, "terraform", "sg_rules.tf", "path output terraform script")
+
 	var container string
 	flag.StringVar(&container, "container", "csls", "name of the LXC container")
 
@@ -120,7 +123,7 @@ func main() {
 	}
 
 	// Create and open the output files
-	outFile, err := os.Create("sg_rules.tf")
+	outFile, err := os.Create(terraformScript)
 	if err != nil {
 		fmt.Println("Failed to create output file:", err)
 		return
