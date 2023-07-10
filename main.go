@@ -79,8 +79,6 @@ func main() {
 
 	flag.Parse()
 
-	flag.Parse()
-
 	// Open the YAML file
 	file, err := os.Open(yamlFilePath)
 	if err != nil {
