@@ -28,7 +28,7 @@ const lxcTemplate = `#!/usr/bin/env bash
 {{ range $index, $rule := .Rules -}}
 {{- if excludeICMPRule $rule }}
 {{- $cidr := splitAtSlash (index $rule.CIDRBlocks 0) }}
-lxc config device add csls {{ $rule.Name }} proxy listen={{ $rule.Protocol }}:{{ $cidr -}}
+lxc config device add {{ $.LXCName }} {{ $rule.Name }} proxy listen={{ $rule.Protocol }}:{{ $cidr -}}
 {{ if eq $rule.FromPort $rule.ToPort }}:{{ $rule.FromPort -}}
 {{ else }}:{{ $rule.FromPort }}-{{ $rule.ToPort -}}
 {{- end }} connect={{ $rule.Protocol }}:127.0.0.1
@@ -50,7 +50,8 @@ type Rule struct {
 }
 
 type Config struct {
-	Rules []Rule `yaml:"rules"`
+	Rules   []Rule `yaml:"rules"`
+	LXCName string `yaml:"-"`
 }
 
 func splitAtSlash(s string) string {
@@ -69,6 +70,9 @@ func main() {
 	var firewallScript string
 	flag.StringVar(&firewallScript, "script", "firewall.sh", "path to lxc container network config script")
 
+	var container string
+	flag.StringVar(&container, "container", "csls", "name of the LXC container")
+
 	flag.Parse()
 
 	// Open the YAML file
@@ -80,7 +84,9 @@ func main() {
 	defer file.Close()
 
 	// Parse YAML data into the configuration struct
-	config := Config{}
+	config := Config{
+		LXCName: container,
+	}
 	decoder := yaml.NewDecoder(file)
 	err = decoder.Decode(&config)
 	if err != nil {
