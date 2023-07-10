@@ -17,7 +17,7 @@ resource "aws_security_group_rule" "{{ $rule.Name }}" {
   from_port         = {{ $rule.FromPort }}
   to_port           = {{ $rule.ToPort }}
   protocol          = "{{ $rule.Protocol }}"
-  security_group_id = data.aws_security_group.northflier.id
+  security_group_id = data.aws_security_group.{{ $.SecurityGroupName }}.id
   cidr_blocks       = ["{{ join $rule.CIDRBlocks "," }}"]
   description       = "{{ $rule.Description }}"
 }
@@ -28,7 +28,7 @@ const lxcTemplate = `#!/usr/bin/env bash
 {{ range $index, $rule := .Rules -}}
 {{- if excludeICMPRule $rule }}
 {{- $cidr := splitAtSlash (index $rule.CIDRBlocks 0) }}
-lxc config device add csls {{ $rule.Name }} proxy listen={{ $rule.Protocol }}:{{ $cidr -}}
+lxc config device add {{ $.LXCName }} {{ $rule.Name }} proxy listen={{ $rule.Protocol }}:{{ $cidr -}}
 {{ if eq $rule.FromPort $rule.ToPort }}:{{ $rule.FromPort -}}
 {{ else }}:{{ $rule.FromPort }}-{{ $rule.ToPort -}}
 {{- end }} connect={{ $rule.Protocol }}:127.0.0.1
@@ -50,7 +50,9 @@ type Rule struct {
 }
 
 type Config struct {
-	Rules []Rule `yaml:"rules"`
+	Rules             []Rule `yaml:"rules"`
+	LXCName           string `yaml:"-"`
+	SecurityGroupName string `yaml:"-"`
 }
 
 func splitAtSlash(s string) string {
@@ -69,6 +71,14 @@ func main() {
 	var firewallScript string
 	flag.StringVar(&firewallScript, "script", "firewall.sh", "path to lxc container network config script")
 
+	var container string
+	flag.StringVar(&container, "container", "csls", "name of the LXC container")
+
+	var securityGroupName string
+	flag.StringVar(&securityGroupName, "security-group-name", "northflier", "ID of the security group")
+
+	flag.Parse()
+
 	flag.Parse()
 
 	// Open the YAML file
@@ -80,7 +90,10 @@ func main() {
 	defer file.Close()
 
 	// Parse YAML data into the configuration struct
-	config := Config{}
+	config := Config{
+		LXCName:           container,
+		SecurityGroupName: securityGroupName,
+	}
 	decoder := yaml.NewDecoder(file)
 	err = decoder.Decode(&config)
 	if err != nil {
@@ -99,8 +112,8 @@ func main() {
 	}
 
 	lxcTmpl, err := template.New("lxc").Funcs(template.FuncMap{
-		"join":           strings.Join,
-		"splitAtSlash":   splitAtSlash,
+		"join":            strings.Join,
+		"splitAtSlash":    splitAtSlash,
 		"excludeICMPRule": excludeICMPRule,
 	}).Parse(lxcTemplate)
 	if err != nil {
@@ -124,7 +137,7 @@ func main() {
 	defer lxcOutFile.Close()
 
 	// Change the permissions of the file to be executable
-	err = os.Chmod(firewallScript, 0755)
+	err = os.Chmod(firewallScript, 0o755)
 	if err != nil {
 		fmt.Printf("Failed to set execute bit on %s: %s\n", firewallScript, err)
 	}
