@@ -24,6 +24,9 @@ TARGET := ./dist/bluetrack_$(GOOS)_$(GOARCH)_v1/$(APP)
 $(APP): $(TARGET)
 	cp $< $@
 
+run: main.go
+	./bluetrack --config network.yaml --container csls --script firewall.sh --security-group-name northflier --terraform sg_rules.tf 2>&1 | tee log.txt
+
 $(TARGET): $(SOURCES)
 	gofumpt -w $(SOURCES)
 	goreleaser build --single-target --snapshot --clean
@@ -34,6 +37,7 @@ all:
 
 .PHONY: clean
 clean:
+	rm -f log.txt
 	rm -f bluetrack
 	rm -f $(TARGET)
 	rm -rf dist

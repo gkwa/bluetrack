@@ -1,0 +1,64 @@
+rules:
+- name: http
+  type: ingress
+  from_port: 80
+  to_port: 80
+  protocol: tcp
+  cidr_blocks:
+  - 0.0.0.0/0
+  description: Allow incoming HTTP access
+
+- name: https_ingress
+  type: ingress
+  from_port: 443
+  to_port: 443
+  protocol: tcp
+  cidr_blocks:
+  - 0.0.0.0/0
+  description: Allow incoming HTTPS access
+
+- name: https_egress
+  type: egress
+  from_port: 443
+  to_port: 443
+  protocol: tcp
+  cidr_blocks:
+  - 0.0.0.0/0
+  description: Allow outgoing HTTPS
+
+- name: ping
+  type: ingress
+  from_port: -1
+  to_port: -1
+  protocol: icmp
+  cidr_blocks:
+  - 0.0.0.0/0
+  description: Allow incoming ICMP (ping)
+
+- name: ssh
+  type: ingress
+  from_port: 22
+  to_port: 22
+  protocol: tcp
+  lxc_forward: 2222
+  cidr_blocks:
+  - 0.0.0.0/0
+  description: Allow incoming SSH access
+
+- name: actl3
+  type: ingress
+  from_port: 1770
+  to_port: 1781
+  protocol: udp
+  cidr_blocks:
+  - 0.0.0.0/0
+  description: Allow incoming ACT-L3/5 Streams
+
+- name: actl3_2
+  type: ingress
+  from_port: 1785
+  to_port: 1785
+  protocol: udp
+  cidr_blocks:
+  - 0.0.0.0/0
+  description: Allow incoming ACT-L3/5 Streams
