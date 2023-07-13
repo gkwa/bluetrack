@@ -31,6 +31,19 @@ lxc config device add {{ $.LXCName }} {{ $rule.Name }} proxy listen={{ $rule.Pro
 {{- end }}
 `
 
+const lxdTemplate = `
+config: {}
+description: ""
+devices:
+{{- range $index, $rule := .Rules }}
+  {{ $rule.Name }}:
+    connect: {{ $rule.LXCConnect }}
+    listen: {{ $rule.Protocol }}:{{ splitAtSlash (index $rule.CIDRBlocks 0) }}{{ $rule.FormattedPortRange }}
+    type: proxy
+{{ end -}}
+name: {{ $.LXCName }}
+`
+
 type Rule struct {
 	Name               string   `yaml:"name"`
 	Type               string   `yaml:"type"`
@@ -75,11 +88,14 @@ func main() {
 	var terraformScript string
 	flag.StringVar(&terraformScript, "terraform", "sg_rules.tf", "path output terraform script")
 
+	var lxdConfig string
+	flag.StringVar(&lxdConfig, "lxd", "lxd_config.yaml", "path output LXD config")
+
 	var container string
 	flag.StringVar(&container, "container", "csls", "name of the LXC container")
 
 	var securityGroupName string
-	flag.StringVar(&securityGroupName, "security-group-name", "northflier", "ID of the security group")
+	flag.StringVar(&securityGroupName, "security-group-name", "northflier", "Name of the security group")
 
 	flag.Parse()
 
@@ -103,12 +119,13 @@ func main() {
 		return
 	}
 
-	// Filter the rules for LXC and Terraform
+	// Filter the rules for LXC, LXD and Terraform
 	terraformRules := filterRules(config.Rules, func(rule *Rule) bool {
 		return true // All rules for Terraform
 	})
 
 	lxcRules := filterRules(config.Rules, func(rule *Rule) bool {
+		// Adapt according to your needs
 		if rule.Protocol == "icmp" || rule.Type == "egress" {
 			return false
 		}
@@ -129,9 +146,10 @@ func main() {
 		}
 
 		rule.LXCConnect = connectStr
-
 		return true
 	})
+
+	config.Rules = terraformRules
 
 	// Prepare the templates
 	tmpl, err := template.New("terraform").Funcs(template.FuncMap{
@@ -147,6 +165,14 @@ func main() {
 		"join":         strings.Join,
 		"splitAtSlash": splitAtSlash,
 	}).Parse(lxcTemplate)
+	if err != nil {
+		fmt.Println("Failed to parse template:", err)
+		return
+	}
+
+	lxdTmpl, err := template.New("lxd").Funcs(template.FuncMap{
+		"splitAtSlash": splitAtSlash,
+	}).Parse(lxdTemplate)
 	if err != nil {
 		fmt.Println("Failed to parse template:", err)
 		return
@@ -168,21 +194,34 @@ func main() {
 	defer lxcOutFile.Close()
 
 	// Change the permissions of the file to be executable
-	err = os.Chmod(firewallScript, 0o755)
-	if err != nil {
-		fmt.Printf("Failed to set execute bit on %s: %s\n", firewallScript, err)
-	}
+	os.Chmod(firewallScript, 0o755)
 
-	// Execute the templates and write the results to respective files
-	err = tmpl.Execute(outFile, &Config{Rules: terraformRules, LXCName: config.LXCName, SecurityGroupName: config.SecurityGroupName})
+	lxdOutFile, err := os.Create(lxdConfig)
+	if err != nil {
+		fmt.Println("Failed to create output file:", err)
+		return
+	}
+	defer lxdOutFile.Close()
+
+	// Execute templates
+	err = tmpl.Execute(outFile, &config)
 	if err != nil {
 		fmt.Println("Failed to execute template:", err)
 		return
 	}
 
-	err = lxcTmpl.Execute(lxcOutFile, &Config{Rules: lxcRules, LXCName: config.LXCName})
+	config.Rules = lxcRules
+	err = lxcTmpl.Execute(lxcOutFile, &config)
 	if err != nil {
-		fmt.Println("Failed to execute LXC template:", err)
+		fmt.Println("Failed to execute template:", err)
 		return
 	}
+
+	err = lxdTmpl.Execute(lxdOutFile, &config)
+	if err != nil {
+		fmt.Println("Failed to execute template:", err)
+		return
+	}
+
+	fmt.Println("Terraform, LXC and LXD configurations generated successfully")
 }

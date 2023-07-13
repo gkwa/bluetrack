@@ -24,8 +24,8 @@ TARGET := ./dist/bluetrack_$(GOOS)_$(GOARCH)_v1/$(APP)
 $(APP): $(TARGET)
 	cp $< $@
 
-run: main.go
-	./bluetrack --config network.yaml --container csls --script firewall.sh --security-group-name northflier --terraform sg_rules.tf 2>&1 | tee log.txt
+run: $(APP)
+	./$(APP) --config network.yaml --container csls --script firewall.sh --security-group-name northflier --terraform sg_rules.tf 2>&1 | tee log.txt
 
 $(TARGET): $(SOURCES)
 	gofumpt -w $(SOURCES)
@@ -37,6 +37,9 @@ all:
 
 .PHONY: clean
 clean:
+	rm -f sg_rules.tf
+	rm -f firewall.sh
+	rm -f lxd_config.yaml
 	rm -f log.txt
 	rm -f bluetrack
 	rm -f $(TARGET)
