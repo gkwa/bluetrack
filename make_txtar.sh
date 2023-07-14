@@ -8,6 +8,7 @@ mkdir -p /tmp/bluetrack
 declare -a files=(
     main.go
     network.yaml
+    firewall.sh
 )
 
 for file in ${files[@]}; do

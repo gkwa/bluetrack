@@ -125,7 +125,6 @@ func main() {
 	})
 
 	lxcRules := filterRules(config.Rules, func(rule *Rule) bool {
-		// Adapt according to your needs
 		if rule.Protocol == "icmp" || rule.Type == "egress" {
 			return false
 		}
@@ -141,13 +140,14 @@ func main() {
 			connectStr = fmt.Sprintf("%s:127.0.0.1:%d", rule.Protocol, rule.FromPort)
 		}
 
-		if rule.LXCForward != 0 {
+		if rule.Name == "ssh" && rule.LXCForward != 0 {
 			connectStr = fmt.Sprintf("%s:127.0.0.1:%d", rule.Protocol, rule.LXCForward)
 		}
 
 		rule.LXCConnect = connectStr
 		return true
 	})
+
 
 	config.Rules = terraformRules
 
