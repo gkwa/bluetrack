@@ -148,7 +148,6 @@ func main() {
 		return true
 	})
 
-
 	config.Rules = terraformRules
 
 	// Prepare the templates
